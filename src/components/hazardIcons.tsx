@@ -1,0 +1,42 @@
+import React from 'react';
+import {
+  AlertOctagon,
+  CloudLightning,
+  CloudRain,
+  Cpu,
+  Droplets,
+  Flame,
+  Fuel,
+  Lock,
+  PackageX,
+  PowerOff,
+  ShieldAlert,
+  Ship,
+  Sprout,
+  TrendingUp,
+  Truck,
+  Users,
+  ZapOff,
+} from 'lucide-react';
+import type { RiskEventType } from '../engine';
+
+export const HAZARD_ICON: Record<RiskEventType, React.ReactNode> = {
+  flood: <CloudRain className="h-5 w-5" aria-hidden="true" />,
+  cyclone: <CloudLightning className="h-5 w-5" aria-hidden="true" />,
+  heatwave: <Flame className="h-5 w-5" aria-hidden="true" />,
+  water_shortage: <Droplets className="h-5 w-5" aria-hidden="true" />,
+  power_outage: <ZapOff className="h-5 w-5" aria-hidden="true" />,
+  transport_strike: <Users className="h-5 w-5" aria-hidden="true" />,
+  port_congestion: <Ship className="h-5 w-5" aria-hidden="true" />,
+  highway_blockade: <Truck className="h-5 w-5" aria-hidden="true" />,
+  factory_fire: <AlertOctagon className="h-5 w-5" aria-hidden="true" />,
+  crop_disease: <Sprout className="h-5 w-5" aria-hidden="true" />,
+  cattle_disease: <ShieldAlert className="h-5 w-5" aria-hidden="true" />,
+  raw_material_shortage: <PackageX className="h-5 w-5" aria-hidden="true" />,
+  export_ban: <Lock className="h-5 w-5" aria-hidden="true" />,
+  gas_shortage: <Fuel className="h-5 w-5" aria-hidden="true" />,
+  material_price_spike: <TrendingUp className="h-5 w-5" aria-hidden="true" />,
+  fuel_price_hike: <Fuel className="h-5 w-5" aria-hidden="true" />,
+  supplier_shutdown: <PowerOff className="h-5 w-5" aria-hidden="true" />,
+  cyber_attack: <Cpu className="h-5 w-5" aria-hidden="true" />,
+};

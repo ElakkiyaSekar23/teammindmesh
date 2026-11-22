@@ -1,0 +1,10 @@
+{
+  "name": "Remix Remix DeepTier",
+  "description": "See the suppliers behind your suppliers, and get warned before their problems become yours.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

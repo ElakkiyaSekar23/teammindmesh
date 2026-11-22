@@ -1,0 +1,212 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Fraunces", "Noto Sans Tamil", "Noto Sans Devanagari", Georgia, serif;
+  --font-sans: "Manrope", "Noto Sans Tamil", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans Tamil", "Noto Sans Devanagari", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --ink: #F2F6FA;
+  --navy: #FFFFFF;
+  --panel: #E8EFF6;
+  --line: rgba(15, 23, 42, 0.14);
+  --text: #0B192C;
+  --muted: #475D75;
+
+  --amber: #F5A83A;
+  --amber-ink: #071624;
+  --teal: #129E76;
+  --blue: #2F60BA;
+  --ember: #D13D27;
+
+  --risk-safe: #129E76;
+  --risk-watch: #B8860B;
+  --risk-danger: #D9691A;
+  --risk-urgent: #DC1F43;
+
+  --grid-dot: rgba(15, 23, 42, 0.08);
+  --noise-opacity: 0.025;
+}
+
+.dark {
+  color-scheme: dark;
+  --ink: #071624;
+  --navy: #0A1F33;
+  --panel: #0F2B45;
+  --line: rgba(160, 190, 220, 0.14);
+  --text: #E8EEF5;
+  --muted: #8FA6BD;
+
+  --amber: #F5A83A;
+  --amber-ink: #071624;
+  --teal: #2ED3A3;
+  --blue: #4C7FDB;
+  --ember: #E5533D;
+
+  --risk-safe: #2ED3A3;
+  --risk-watch: #F5C242;
+  --risk-danger: #F28B3A;
+  --risk-urgent: #FF3B5C;
+
+  --grid-dot: rgba(160, 190, 220, 0.10);
+  --noise-opacity: 0.035;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--ink);
+    color: var(--text);
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: var(--ink);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [role="switch"]:focus-visible,
+  [role="tab"]:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+}
+
+/* Custom instrument select (no default browser dropdown arrow) */
+.deeptier-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238FA6BD' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+
+.deeptier-select:hover {
+  border-color: var(--muted);
+}
+
+.deeptier-select:focus-visible {
+  border-color: var(--amber);
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* Custom instrument range slider with 44px touch target track wrapper */
+.deeptier-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.deeptier-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.deeptier-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  margin-top: -9px;
+  border-radius: 9999px;
+  background: var(--amber);
+  border: 2px solid var(--amber-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 150ms ease;
+}
+
+.deeptier-range:hover::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+.deeptier-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.deeptier-range::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: var(--amber);
+  border: 2px solid var(--amber-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Clean, minimal app canvas */
+.deeptier-canvas-bg {
+  background-color: var(--ink);
+}
+
+/* Flat, clean 1px hairline card surfaces (single-elevation) */
+.surface-card,
+.instrument-panel {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background-color: var(--navy);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.instrument-panel-raised {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background-color: var(--panel);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.instrument-ticks::before,
+.instrument-ticks::after {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
