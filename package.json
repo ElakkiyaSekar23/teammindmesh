@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "npm run build:client && npm run build:server",
+    "build": "vite build",
     "build:client": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --target=node20 --outfile=server.js --packages=external",
+    "build:all": "vite build && npm run build:server",
     "start": "node server.js",
     "start:dev": "tsx server.ts",
     "preview": "vite preview",

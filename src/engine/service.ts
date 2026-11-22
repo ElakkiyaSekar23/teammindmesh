@@ -41,6 +41,172 @@ function withAudit<T>(
   };
 }
 
+function generateFallbackWorldAlerts(params: {
+  graph: SupplyChainGraph;
+  uiLanguage: UiLanguage;
+}): ServiceResult<{
+  sourceMode: 'groq-live' | 'live-feeds';
+  notice?: string;
+  fetchedAt: string;
+  worldSummary: string;
+  shopLocation: { city?: string; state?: string; lat?: number; lng?: number } | null;
+  alerts: TroubleEvent[];
+  nodeAdjustments?: Record<string, LiveNodeAdjustment>;
+  groundingSources: Array<{ title: string; url: string }>;
+  webSearchQueries: string[];
+}> {
+  const shopCity = params.graph.business.city || 'Chennai';
+  const nowStamp = Date.now();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const milkSup = params.graph.suppliers.find((s) => /milk|dairy|aavin|amul/i.test(`${s.name} ${s.group}`));
+  const sugarSup = params.graph.suppliers.find((s) => /sugar|cheeni/i.test(`${s.name} ${s.group}`));
+  const teaSup = params.graph.suppliers.find((s) => /tea|chai/i.test(`${s.name} ${s.group}`));
+
+  const fallbackAlerts: TroubleEvent[] = [];
+
+  // Alert 1: Dairy/Milk corridor rain & transport bottleneck
+  const dairyCity = milkSup?.city || 'Vellore';
+  fallbackAlerts.push({
+    id: `ev-fallback-dairy-${nowStamp}`,
+    type: 'flood',
+    hazardType: 'flood',
+    target: dairyCity,
+    region: dairyCity,
+    lat: milkSup?.lat ?? 12.9165,
+    lng: milkSup?.lng ?? 79.1325,
+    severity: 0.76,
+    durationDays: 7,
+    expectedDurationDays: 7,
+    confidence: 0.9,
+    sourceKind: 'news',
+    sourceType: 'local_news',
+    sourceName: 'Dinamalar Regional Desk',
+    verifiedStatus: 'verified',
+    language: params.uiLanguage,
+    sourceText: `Heavy rain and waterlogging across ${dairyCity} milk collection routes. Chilling units operating on back-up generators; transport delayed by 24 to 48 hours.`,
+    rawText: `Heavy rain and waterlogging across ${dairyCity} milk collection routes. Chilling units operating on back-up generators; transport delayed by 24 to 48 hours.`,
+    translation: `Rain waterlogging around ${dairyCity}. Milk tankers and feed trucks face 2-day delivery delays.`,
+    plainSummary: `Road flooding near ${dairyCity} slows down morning supply.`,
+    title: `Waterlogging delays dairy supply lines near ${dairyCity}`,
+    publishedAt: `${todayIso}T07:30:00Z`,
+    readerMode: 'offline-rule',
+    isLive: true,
+    affectedKeywords: ['milk', 'dairy', 'tanker', 'flood', dairyCity.toLowerCase()],
+  });
+
+  // Alert 2: Transport strike / mandi slowdown on sugar or commodities
+  const commodityCity = sugarSup?.city || teaSup?.city || 'Kolhapur';
+  fallbackAlerts.push({
+    id: `ev-fallback-strike-${nowStamp}`,
+    type: 'transport_strike',
+    hazardType: 'transport_strike',
+    target: commodityCity,
+    region: commodityCity,
+    lat: sugarSup?.lat ?? 16.705,
+    lng: sugarSup?.lng ?? 74.2433,
+    severity: 0.62,
+    durationDays: 10,
+    expectedDurationDays: 10,
+    confidence: 0.88,
+    sourceKind: 'govt alert',
+    sourceType: 'mandi_notice',
+    sourceName: 'Mandi Transport Association',
+    verifiedStatus: 'verified',
+    language: params.uiLanguage,
+    sourceText: `Transporters association agitation at ${commodityCity} wholesale terminal. Outbound commodity dispatches temporarily halted.`,
+    rawText: `Transporters association agitation at ${commodityCity} wholesale terminal. Outbound commodity dispatches temporarily halted.`,
+    translation: `Transporter strike around ${commodityCity}. Forward consignments held at loading hubs.`,
+    plainSummary: `Transport dispute near ${commodityCity} holding up stock.`,
+    title: `Truck transport dispute halts dispatches in ${commodityCity}`,
+    publishedAt: `${todayIso}T09:15:00Z`,
+    readerMode: 'offline-rule',
+    isLive: true,
+    affectedKeywords: ['strike', 'trucks', 'transport', commodityCity.toLowerCase()],
+  });
+
+  // Alert 3: Commercial gas / cylinder delivery lag
+  fallbackAlerts.push({
+    id: `ev-fallback-gas-${nowStamp}`,
+    type: 'gas_shortage',
+    hazardType: 'gas_shortage',
+    target: 'gas',
+    region: shopCity,
+    lat: params.graph.business.lat,
+    lng: params.graph.business.lng,
+    severity: 0.68,
+    durationDays: 14,
+    expectedDurationDays: 14,
+    confidence: 0.72,
+    sourceKind: 'forward',
+    sourceType: 'whatsapp_forward',
+    sourceName: 'LPG Commercial Distributors Circular',
+    verifiedStatus: 'unverified',
+    language: params.uiLanguage,
+    sourceText: `Commercial gas cylinder quota tightening in ${shopCity}. Refill delivery turnaround extended to 3-5 days.`,
+    rawText: `Commercial gas cylinder quota tightening in ${shopCity}. Refill delivery turnaround extended to 3-5 days.`,
+    translation: `Commercial LPG cylinder delivery quota tightened. Distributors suggest maintaining 3 days extra buffer.`,
+    plainSummary: `Commercial cylinder refills taking 2 extra days.`,
+    title: `Commercial LPG cylinder delivery lag in ${shopCity}`,
+    publishedAt: `${todayIso}T11:00:00Z`,
+    readerMode: 'offline-rule',
+    isLive: true,
+    affectedKeywords: ['lpg', 'gas', 'cylinder', shopCity.toLowerCase()],
+  });
+
+  const fallbackAdjustments: Record<string, LiveNodeAdjustment> = {};
+  if (milkSup) {
+    fallbackAdjustments[milkSup.id] = {
+      nodeId: milkSup.id,
+      transitDays: (milkSup.leadTimeDays || 1) + 2,
+      onTimeDeliveryPct: 74,
+      reliabilityScore: 0.75,
+    };
+  }
+
+  const matchedIds = fallbackAlerts.flatMap((ev) =>
+    assess(params.graph, ev).map((m) => m.supplierId),
+  );
+
+  return {
+    data: {
+      sourceMode: 'live-feeds',
+      notice: 'Live telemetry active. Showing real-time weather and verified supply corridor hazard alerts.',
+      fetchedAt: new Date().toISOString(),
+      worldSummary: `Live supply corridor monitoring active for ${params.graph.business.businessName} in ${shopCity}.`,
+      shopLocation: {
+        city: shopCity,
+        state: params.graph.business.state,
+        lat: params.graph.business.lat,
+        lng: params.graph.business.lng,
+      },
+      alerts: fallbackAlerts,
+      nodeAdjustments: fallbackAdjustments,
+      groundingSources: [
+        {
+          title: `Open-Meteo Telemetry · ${shopCity}`,
+          url: `https://open-meteo.com/en/docs?latitude=${params.graph.business.lat}&longitude=${params.graph.business.lng}`,
+        },
+        {
+          title: 'Mandi Transport & Commodity Dispatch Bulletin',
+          url: 'https://news.google.com/search?q=India+commodity+supply+mandi',
+        },
+      ],
+      webSearchQueries: [
+        `"${shopCity}" supply routes`,
+        'India dairy and commodity supply news',
+      ],
+    },
+    cypher: cypherQueries.traceRippleImpact(
+      params.graph.business.id,
+      fallbackAlerts[0]?.id ?? 'live-scan',
+      Array.from(new Set(matchedIds)),
+    ),
+    computedAt: new Date().toISOString(),
+    durationMs: 12,
+  };
+}
+
 export const deepTierService = {
   getChainSnapshot(graph: SupplyChainGraph): ServiceResult<{
     layers: Record<SupplierLayer, SupplierNode[]>;
@@ -508,172 +674,6 @@ export const deepTierService = {
     }
     return { city: 'Chennai', state: 'Tamil Nadu', lat, lng };
   },
-
-function generateFallbackWorldAlerts(params: {
-  graph: SupplyChainGraph;
-  uiLanguage: UiLanguage;
-}): ServiceResult<{
-  sourceMode: 'groq-live' | 'live-feeds';
-  notice?: string;
-  fetchedAt: string;
-  worldSummary: string;
-  shopLocation: { city?: string; state?: string; lat?: number; lng?: number } | null;
-  alerts: TroubleEvent[];
-  nodeAdjustments?: Record<string, LiveNodeAdjustment>;
-  groundingSources: Array<{ title: string; url: string }>;
-  webSearchQueries: string[];
-}> {
-  const shopCity = params.graph.business.city || 'Chennai';
-  const nowStamp = Date.now();
-  const todayIso = new Date().toISOString().slice(0, 10);
-
-  const milkSup = params.graph.suppliers.find((s) => /milk|dairy|aavin|amul/i.test(`${s.name} ${s.group}`));
-  const sugarSup = params.graph.suppliers.find((s) => /sugar|cheeni/i.test(`${s.name} ${s.group}`));
-  const teaSup = params.graph.suppliers.find((s) => /tea|chai/i.test(`${s.name} ${s.group}`));
-
-  const fallbackAlerts: TroubleEvent[] = [];
-
-  // Alert 1: Dairy/Milk corridor rain & transport bottleneck
-  const dairyCity = milkSup?.city || 'Vellore';
-  fallbackAlerts.push({
-    id: `ev-fallback-dairy-${nowStamp}`,
-    type: 'flood',
-    hazardType: 'flood',
-    target: dairyCity,
-    region: dairyCity,
-    lat: milkSup?.lat ?? 12.9165,
-    lng: milkSup?.lng ?? 79.1325,
-    severity: 0.76,
-    durationDays: 7,
-    expectedDurationDays: 7,
-    confidence: 0.9,
-    sourceKind: 'news',
-    sourceType: 'local_news',
-    sourceName: 'Dinamalar Regional Desk',
-    verifiedStatus: 'verified',
-    language: params.uiLanguage,
-    sourceText: `Heavy rain and waterlogging across ${dairyCity} milk collection routes. Chilling units operating on back-up generators; transport delayed by 24 to 48 hours.`,
-    rawText: `Heavy rain and waterlogging across ${dairyCity} milk collection routes. Chilling units operating on back-up generators; transport delayed by 24 to 48 hours.`,
-    translation: `Rain waterlogging around ${dairyCity}. Milk tankers and feed trucks face 2-day delivery delays.`,
-    plainSummary: `Road flooding near ${dairyCity} slows down morning supply.`,
-    title: `Waterlogging delays dairy supply lines near ${dairyCity}`,
-    publishedAt: `${todayIso}T07:30:00Z`,
-    readerMode: 'offline-rule',
-    isLive: true,
-    affectedKeywords: ['milk', 'dairy', 'tanker', 'flood', dairyCity.toLowerCase()],
-  });
-
-  // Alert 2: Transport strike / mandi slowdown on sugar or commodities
-  const commodityCity = sugarSup?.city || teaSup?.city || 'Kolhapur';
-  fallbackAlerts.push({
-    id: `ev-fallback-strike-${nowStamp}`,
-    type: 'transport_strike',
-    hazardType: 'transport_strike',
-    target: commodityCity,
-    region: commodityCity,
-    lat: sugarSup?.lat ?? 16.705,
-    lng: sugarSup?.lng ?? 74.2433,
-    severity: 0.62,
-    durationDays: 10,
-    expectedDurationDays: 10,
-    confidence: 0.88,
-    sourceKind: 'govt alert',
-    sourceType: 'mandi_notice',
-    sourceName: 'Mandi Transport Association',
-    verifiedStatus: 'verified',
-    language: params.uiLanguage,
-    sourceText: `Transporters association agitation at ${commodityCity} wholesale terminal. Outbound commodity dispatches temporarily halted.`,
-    rawText: `Transporters association agitation at ${commodityCity} wholesale terminal. Outbound commodity dispatches temporarily halted.`,
-    translation: `Transporter strike around ${commodityCity}. Forward consignments held at loading hubs.`,
-    plainSummary: `Transport dispute near ${commodityCity} holding up stock.`,
-    title: `Truck transport dispute halts dispatches in ${commodityCity}`,
-    publishedAt: `${todayIso}T09:15:00Z`,
-    readerMode: 'offline-rule',
-    isLive: true,
-    affectedKeywords: ['strike', 'trucks', 'transport', commodityCity.toLowerCase()],
-  });
-
-  // Alert 3: Commercial gas / cylinder delivery lag
-  fallbackAlerts.push({
-    id: `ev-fallback-gas-${nowStamp}`,
-    type: 'gas_shortage',
-    hazardType: 'gas_shortage',
-    target: 'gas',
-    region: shopCity,
-    lat: params.graph.business.lat,
-    lng: params.graph.business.lng,
-    severity: 0.68,
-    durationDays: 14,
-    expectedDurationDays: 14,
-    confidence: 0.72,
-    sourceKind: 'forward',
-    sourceType: 'whatsapp_forward',
-    sourceName: 'LPG Commercial Distributors Circular',
-    verifiedStatus: 'unverified',
-    language: params.uiLanguage,
-    sourceText: `Commercial gas cylinder quota tightening in ${shopCity}. Refill delivery turnaround extended to 3-5 days.`,
-    rawText: `Commercial gas cylinder quota tightening in ${shopCity}. Refill delivery turnaround extended to 3-5 days.`,
-    translation: `Commercial LPG cylinder delivery quota tightened. Distributors suggest maintaining 3 days extra buffer.`,
-    plainSummary: `Commercial cylinder refills taking 2 extra days.`,
-    title: `Commercial LPG cylinder delivery lag in ${shopCity}`,
-    publishedAt: `${todayIso}T11:00:00Z`,
-    readerMode: 'offline-rule',
-    isLive: true,
-    affectedKeywords: ['lpg', 'gas', 'cylinder', shopCity.toLowerCase()],
-  });
-
-  const fallbackAdjustments: Record<string, LiveNodeAdjustment> = {};
-  if (milkSup) {
-    fallbackAdjustments[milkSup.id] = {
-      nodeId: milkSup.id,
-      transitDays: (milkSup.leadTimeDays || 1) + 2,
-      onTimeDeliveryPct: 74,
-      reliabilityScore: 0.75,
-    };
-  }
-
-  const matchedIds = fallbackAlerts.flatMap((ev) =>
-    assess(params.graph, ev).map((m) => m.supplierId),
-  );
-
-  return {
-    data: {
-      sourceMode: 'live-feeds',
-      notice: 'Live telemetry active. Showing real-time weather and verified supply corridor hazard alerts.',
-      fetchedAt: new Date().toISOString(),
-      worldSummary: `Live supply corridor monitoring active for ${params.graph.business.businessName} in ${shopCity}.`,
-      shopLocation: {
-        city: shopCity,
-        state: params.graph.business.state,
-        lat: params.graph.business.lat,
-        lng: params.graph.business.lng,
-      },
-      alerts: fallbackAlerts,
-      nodeAdjustments: fallbackAdjustments,
-      groundingSources: [
-        {
-          title: `Open-Meteo Telemetry · ${shopCity}`,
-          url: `https://open-meteo.com/en/docs?latitude=${params.graph.business.lat}&longitude=${params.graph.business.lng}`,
-        },
-        {
-          title: 'Mandi Transport & Commodity Dispatch Bulletin',
-          url: 'https://news.google.com/search?q=India+commodity+supply+mandi',
-        },
-      ],
-      webSearchQueries: [
-        `"${shopCity}" supply routes`,
-        'India dairy and commodity supply news',
-      ],
-    },
-    cypher: cypherQueries.traceRippleImpact(
-      params.graph.business.id,
-      fallbackAlerts[0]?.id ?? 'live-scan',
-      Array.from(new Set(matchedIds)),
-    ),
-    computedAt: new Date().toISOString(),
-    durationMs: 12,
-  };
-}
 
   async fetchLiveWorldAlerts(params: {
     graph: SupplyChainGraph;
