@@ -9,6 +9,19 @@ export default defineConfig(() => {
     plugins: [
       react(),
       tailwindcss(),
+      {
+        name: 'api-dev-middleware',
+        async configureServer(server) {
+          const { createApiApp } = await import('./server/apiApp.ts');
+          const app = createApiApp();
+          server.middlewares.use(app);
+        },
+        async configurePreviewServer(server) {
+          const { createApiApp } = await import('./server/apiApp.ts');
+          const app = createApiApp();
+          server.middlewares.use(app);
+        },
+      },
       // Copies src/assets into dist/ so root-relative URLs like
       // "/src/assets/images/..." (e.g. generate_image output) still resolve
       // in production builds. Do not remove.

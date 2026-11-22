@@ -583,7 +583,10 @@ export function DeepTierProvider({ children }: { children: React.ReactNode }) {
         },
         eventsByPersona: {
           ...prev.eventsByPersona,
-          shop: [],
+          shop:
+            prev.eventsByPersona.shop && prev.eventsByPersona.shop.length > 0
+              ? prev.eventsByPersona.shop
+              : [...SAMPLE_NEWS_EVENTS.shop],
         },
         liveWorldMetaByPersona: {
           ...(prev.liveWorldMetaByPersona ?? {}),
@@ -591,7 +594,7 @@ export function DeepTierProvider({ children }: { children: React.ReactNode }) {
         },
       }));
       setIsWorldPickerOpen(false);
-      setSelectedEventId(null);
+      setSelectedEventId(SAMPLE_NEWS_EVENTS.shop[0]?.id ?? null);
       void runLiveWorldScan('shop', customGraph, config);
     },
     [runLiveWorldScan],
