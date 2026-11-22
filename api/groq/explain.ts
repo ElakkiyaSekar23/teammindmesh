@@ -1,3 +1,9 @@
+/**
+ * /api/groq/explain
+ * Uses Groq LLM to explain a supply chain risk event in plain language
+ * for a small business owner, in their local language.
+ */
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
@@ -12,15 +18,31 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.GROQ_API_KEY?.trim();
-  const summary = req.body?.summary;
-  const uiLanguage = req.body?.uiLanguage === 'ta' ? 'Tamil' : req.body?.uiLanguage === 'hi' ? 'Hindi' : 'English';
-
-  if (!apiKey || apiKey === 'MY_GROQ_API_KEY' || !summary) {
-    res.status(200).json({ ok: false, fallback: true });
+  if (!apiKey || apiKey.length < 10 || apiKey === 'MY_GROQ_API_KEY') {
+    res.status(200).json({ ok: false, error: 'Groq not configured' });
     return;
   }
 
+  const { eventTitle, eventType, region, severity, shopName, shopCategory, uiLanguage } = req.body ?? {};
+
+  const langName = uiLanguage === 'ta' ? 'Tamil' : uiLanguage === 'hi' ? 'Hindi' : uiLanguage === 'te' ? 'Telugu' : 'English';
+
   try {
+    const prompt = `You are a friendly supply chain advisor for small Indian businesses. Explain this risk event to a shop owner in simple, practical ${langName}.
+
+Event: ${eventTitle || eventType}
+Type: ${eventType}
+Region: ${region}
+Severity: ${Math.round((severity ?? 0.5) * 100)}%
+Business: ${shopName} (${shopCategory})
+
+Provide:
+1. What happened (1 sentence)
+2. How it affects this business specifically (1-2 sentences)
+3. What the owner should do right now (2-3 bullet points)
+
+Keep it simple, practical, and under 150 words total. Use ${langName}.`;
+
     const resp = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -29,30 +51,22 @@ export default async function handler(req: any, res: any) {
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'Explain the calculated warning in 3 simple sentences. Return valid JSON only: { "sentences": ["...", "...", "..."] }',
-          },
-          {
-            role: 'user',
-            content: `Explain in ${uiLanguage}. Data: ${JSON.stringify(summary)}`,
-          },
-        ],
+        temperature: 0.3,
+        max_tokens: 300,
+        messages: [{ role: 'user', content: prompt }],
       }),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!resp.ok) {
-      res.status(200).json({ ok: false, fallback: true });
+      res.status(200).json({ ok: false, error: `Groq error ${resp.status}` });
       return;
     }
+
     const data: any = await resp.json();
-    const parsed = JSON.parse(data?.choices?.[0]?.message?.content || '{}');
-    res.status(200).json({ ok: true, sentences: parsed.sentences || [] });
-  } catch {
-    res.status(200).json({ ok: false, fallback: true });
+    const explanation = data?.choices?.[0]?.message?.content ?? '';
+    res.status(200).json({ ok: true, explanation: explanation.trim() });
+  } catch (err: any) {
+    res.status(200).json({ ok: false, error: err?.message ?? 'Unknown error' });
   }
 }

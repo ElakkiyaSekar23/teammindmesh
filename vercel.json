@@ -4,8 +4,23 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/**/*.ts": {
+    "api/groq/live-world-alerts.ts": {
       "maxDuration": 30
+    },
+    "api/groq/read-news.ts": {
+      "maxDuration": 15
+    },
+    "api/groq/explain.ts": {
+      "maxDuration": 15
+    },
+    "api/geo/search.ts": {
+      "maxDuration": 10
+    },
+    "api/geo/reverse.ts": {
+      "maxDuration": 10
+    },
+    "api/health.ts": {
+      "maxDuration": 5
     }
   },
   "rewrites": [
